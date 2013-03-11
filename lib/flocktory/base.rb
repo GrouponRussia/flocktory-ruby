@@ -5,6 +5,8 @@ module Flocktory
   class Base
     include HTTParty
 
+    ACCESS_TOKEN_CACHE_KEY = 'flocktory_access_token'.freeze
+
     base_uri 'https://client.flocktory.com/1'
 
     class << self
@@ -15,9 +17,19 @@ module Flocktory
           :client_secret => Flocktory.configuration.client_secret
         }
 
-        response = post('/oauth/token', query: query)
+        access_token = Rails.cache.read(ACCESS_TOKEN_CACHE_KEY) if defined?(Rails)
 
-        response['access_token']
+        unless access_token
+          response = post('/oauth/token', query: query)
+
+          if defined?(Rails)
+            Rails.cache.write(ACCESS_TOKEN_CACHE_KEY, response['access_token'], expires_in: response['expires_in'])
+          end
+
+          access_token = response['access_token']
+        end
+
+        access_token
       end
 
       def default_params
